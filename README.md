@@ -8,69 +8,32 @@ A natural-language interface to an enterprise employee database, powered by **Gr
 
 ```mermaid
 flowchart TD
-    subgraph CLIENT["🌐  Client Layer"]
-        U(["👤 User\n(Browser)"])
-    end
-
-    subgraph APP["⚡  Streamlit App  ·  app.py"]
-        direction TB
-        UI["Chat Interface\nst.chat_input / st.chat_message"]
-        DISPATCH["Tool Dispatcher\ndispatch_tool()"]
-    end
-
-    subgraph GROQ["🤖  Groq Cloud  ·  llama-3.1-8b-instant"]
-        direction TB
-        LLM1["Pass 1 — Tool Decision\nchat.completions.create\n+ tools + tool_choice=auto"]
-        LLM2["Pass 2 — Synthesise Result\nchat.completions.create\n+ stream=True"]
-    end
-
-    subgraph DBLAYER["🗄️  Shared Database Layer  ·  db.py"]
-        direction TB
-        V["Input Validation\n_validate_name / _validate_role"]
-        FN["Query Functions\nget_active_users · add_user\ndeactivate_user · get_user_stats\nsearch_users"]
-    end
-
-    subgraph DB["💾  SQLite Database  ·  enterprise_data.db"]
-        TBL[["users table\n─────────────────\nid · name · role · status"]]
-    end
-
-    subgraph MCP["🔌  MCP Server  ·  server.py  (stdio)"]
-        MCPTOOLS["list_tools()\ncall_tool()"]
-    end
-
-    subgraph MCPCLIENT["🤖  Any MCP-Compatible\nAI Client"]
-        EXTAI(["e.g. Claude Desktop\nCursor, etc."])
-    end
-
-    %% Main chat flow
-    U        -- "Natural language query" -->  UI
-    UI       -- "Full message history"   -->  LLM1
-    LLM1     -- "tool_calls[]"           -->  DISPATCH
-    DISPATCH -- "calls DB functions"     -->  V
-    V        -- "validated params"       -->  FN
-    FN       -- "SQL queries"            -->  TBL
-    TBL      -- "rows"                   -->  FN
-    FN       -- "JSON result"            -->  DISPATCH
-    DISPATCH -- "tool result messages"   -->  LLM2
-    LLM2     -- "streamed answer"        -->  UI
-    UI       -- "Formatted response"     -->  U
-
-    %% MCP server flow
-    EXTAI    -- "MCP / stdio"            -->  MCPTOOLS
-    MCPTOOLS -- "calls DB functions"     -->  FN
-
     %% Styling
-    classDef cloud  fill:#1a1d2e,stroke:#818cf8,stroke-width:2px,color:#c7d2fe
-    classDef db     fill:#0f1e17,stroke:#34d399,stroke-width:2px,color:#a7f3d0
-    classDef app    fill:#0f1620,stroke:#6ee7f7,stroke-width:2px,color:#cffafe
-    classDef mcp    fill:#1e1226,stroke:#c084fc,stroke-width:2px,color:#e9d5ff
-    classDef user   fill:#1e1a0f,stroke:#fbbf24,stroke-width:2px,color:#fef3c7
+    classDef client fill:#2d3748,stroke:#94a3b8,stroke-width:1px,color:#f8fafc,rx:10px
+    classDef core fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#eff6ff,rx:6px
+    classDef db fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5,rx:6px
+    classDef ai fill:#312e81,stroke:#8b5cf6,stroke-width:2px,color:#eef2ff,rx:6px
 
-    class LLM1,LLM2 cloud
-    class TBL,FN,V db
-    class UI,DISPATCH app
-    class MCPTOOLS,EXTAI mcp
-    class U user
+    %% Nodes
+    User(["👤 User Browser"]):::client
+    ExtAI(["🤖 MCP Client (Claude, Cursor)"]):::client
+
+    App["⚡ Streamlit App"]:::core
+    Server["🔌 MCP Server"]:::core
+    DBLayer["⚙️ Shared DB Layer"]:::core
+
+    Groq{"🧠 Groq LLM"}:::ai
+    SQLite[("💾 SQLite Database")]:::db
+
+    %% Connections
+    User <-->|"Chat Interface"| App
+    App <-->|"Prompts & Tools"| Groq
+    App -->|"Execute Tools"| DBLayer
+
+    ExtAI <-->|"MCP / stdio"| Server
+    Server -->|"Execute Tools"| DBLayer
+
+    DBLayer <-->|"SQL Operations"| SQLite
 ```
 
 

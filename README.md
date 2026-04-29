@@ -109,10 +109,21 @@ The LLM can call these tools automatically based on your query:
 
 ## Running the MCP Server (Standalone)
 
-`server.py` exposes the same tools via the [Model Context Protocol](https://modelcontextprotocol.io/) over stdio, for use with any MCP-compatible AI client:
+`server.py` exposes the same tools via the [Model Context Protocol](https://modelcontextprotocol.io/). It supports both local `stdio` connections and an HTTP-based `sse` Transport! 
 
+It now exposes:
+- **Tools**: DB query and update operations
+- **Resources**: Exposes `schema.sql` over MCP
+- **Prompts**: Provides pre-configured prompts like `hr-assistant`
+
+To run locally for AI desktop apps (like Claude Desktop / Cursor):
 ```bash
-python mcp_project/server.py
+python mcp_project/server.py --transport stdio
+```
+
+To run as an HTTP SSE server on port 8000:
+```bash
+python mcp_project/server.py --transport sse --port 8000
 ```
 
 ---

@@ -7,7 +7,7 @@ import sqlite3
 import hashlib
 from typing import Any
 
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase, Driver
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
@@ -38,7 +38,7 @@ def _get_qdrant_client() -> QdrantClient | None:
     return QdrantClient(url=url, api_key=api_key)
 
 
-def _get_neo4j_driver() -> GraphDatabase.driver | None:
+def _get_neo4j_driver() -> Driver | None:
     uri = os.getenv("NEO4J_URI", "").strip()
     user = os.getenv("NEO4J_USER", "").strip()
     password = os.getenv("NEO4J_PASSWORD", "").strip()

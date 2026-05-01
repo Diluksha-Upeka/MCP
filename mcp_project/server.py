@@ -725,7 +725,12 @@ async def get_prompt(name: str, arguments: dict | None) -> GetPromptResult:
     raise ValueError(f"Unknown prompt: {name}")
 
 
-async def main():
+async def _run_stdio() -> None:
+    async with stdio_server() as (read_stream, write_stream):
+        await app.run(read_stream, write_stream, app.create_initialization_options())
+
+
+def main() -> None:
     init_db()
     parser = argparse.ArgumentParser(description="Run the MCP server")
     parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio", help="Transport protocol to use (stdio or sse)")
@@ -754,9 +759,8 @@ async def main():
 
         uvicorn.run(starlette_app, host="0.0.0.0", port=args.port)
     else:
-        async with stdio_server() as (read_stream, write_stream):
-            await app.run(read_stream, write_stream, app.create_initialization_options())
+        asyncio.run(_run_stdio())
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

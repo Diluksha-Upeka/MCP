@@ -1,6 +1,8 @@
 # Environment & Secrets
 .env
 *.env.*
+!.env.example
+!next-app/.env.example
 
 # Database files
 *.db
@@ -23,6 +25,11 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Node / Next.js
+node_modules/
+.next/
+next-app/.next/
 
 # IDE files
 .vscode/

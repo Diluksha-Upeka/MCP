@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      MCP_AUTH_REQUIRED: "false"
+      MCP_JWKS_URL: ""
+      MCP_ISSUER: ""
+      MCP_AUDIENCE: ""
+      QDRANT_URL: "http://qdrant:6333"
+      NEO4J_URI: "bolt://neo4j:7687"
+      NEO4J_USER: "neo4j"
+      NEO4J_PASSWORD: "password"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+      - neo4j
+
+  qdrant:
+    image: qdrant/qdrant:v1.10.1
+    ports:
+      - "6333:6333"
+
+  neo4j:
+    image: neo4j:5.21
+    environment:
+      NEO4J_AUTH: "neo4j/password"
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+
+  next-app:
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile
+    environment:
+      MCP_BASE_URL: "http://mcp-server:8000"
+      MCP_DEV_TOKEN: ""
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ""
+      CLERK_SECRET_KEY: ""
+      CLERK_JWT_TEMPLATE: ""
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mcp-server

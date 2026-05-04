@@ -1,152 +1,143 @@
-# Enterprise Data Agent 🗄️
+# Enterprise MCP Operations Console
 
-A natural-language interface to an enterprise employee database, powered by **Groq LLM** tool-calling and a local **SQLite** database, with a **Streamlit** frontend and a **Model Context Protocol (MCP)** server backend.
-
----
+Enterprise-grade Model Context Protocol server with secure tool execution, hybrid retrieval, and human-in-the-loop approvals. Includes a Next.js UI, Docker deployment, and GitHub Actions validation.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    %% Styling
-    classDef client fill:#2d3748,stroke:#94a3b8,stroke-width:1px,color:#f8fafc,rx:10px
-    classDef core fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#eff6ff,rx:6px
-    classDef db fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5,rx:6px
-    classDef ai fill:#312e81,stroke:#8b5cf6,stroke-width:2px,color:#eef2ff,rx:6px
-
-    %% Nodes
-    User(["👤 User Browser"]):::client
-    ExtAI(["🤖 MCP Client (Claude, Cursor)"]):::client
-
-    App["⚡ Streamlit App"]:::core
-    Server["🔌 MCP Server"]:::core
-    DBLayer["⚙️ Shared DB Layer"]:::core
-
-    Groq{"🧠 Groq LLM"}:::ai
-    SQLite[("💾 SQLite Database")]:::db
-
-    %% Connections
-    User <-->|"Chat Interface"| App
-    App <-->|"Prompts & Tools"| Groq
-    App -->|"Execute Tools"| DBLayer
-
-    ExtAI <-->|"MCP / stdio"| Server
-    Server -->|"Execute Tools"| DBLayer
-
-    DBLayer <-->|"SQL Operations"| SQLite
+    User[Browser User] --> UI[Next.js Ops Console]
+    UI -->|OAuth JWT| Auth[OAuth Provider]
+    UI -->|REST proxy| MCP[MCP Server + REST]
+    MCP -->|Tools| SQLite[(SQLite SOPs/Logs/Approvals)]
+    MCP -->|Vector Search| Qdrant[(Qdrant)]
+    MCP -->|Graph Traversal| Neo4j[(Neo4j)]
+    MCP -->|Audit Logs| SQLite
+    MCP -->|MCP/stdio| MCPClient[MCP Client]
+    Orchestrator[LangGraph Demo] --> MCP
 ```
 
+## Why these schemas
 
----
+- SOPs and system logs model real enterprise workflows and incident response.
+- Graph entities and edges support relationship-aware retrieval for dependency reasoning.
+- Audit logs and approval requests enable traceability and HITL governance.
 
-## Quick Start
+## Core MCP primitives
 
-### 1. Prerequisites
-- Python 3.11+
-- A [Groq API key](https://console.groq.com/)
+- Resources: SOP catalog, recent logs, graph entities, plus schema.
+- Tools: deterministic JSON schema per tool, including sensitive tool gating.
+- Prompts: dynamic ops assistant prompt adapting to role and incident level.
 
-### 2. Clone & Set Up
+## Security model
+
+- OAuth/JWT verification at the MCP layer via JWKS.
+- Scope-based authorization per tool.
+- Full audit logging for all tool calls.
+- HITL approval queue for sensitive actions.
+
+## Quick start (local)
+
+### 1) Setup Python
+
 ```bash
-git clone <your-repo-url>
-cd mcp_project
-
-# Create and activate a virtual environment
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
-
-# Install dependencies
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment
-Create a `.env` file in the project root (`F:\PROJECTS\MCP\.env`):
-```
-GROQ_API_KEY=gsk_your_key_here
-GROQ_MODEL=llama-3.3-70b-versatile   # optional, this is the default
-```
+### 2) Initialize SQLite
 
-### 4. Initialize the Database
 ```bash
-# From the project root (F:\PROJECTS\MCP\)
 sqlite3 enterprise_data.db < schema.sql
 ```
 
-### 5. Run the App
+The server auto-initializes the database if the file is missing.
+
+### 3) Run MCP server (SSE)
+
 ```bash
-# From F:\PROJECTS\MCP\
-streamlit run mcp_project/app.py
-```
-
-Open [http://localhost:8501](http://localhost:8501) in your browser.
-
----
-
-## Available Tools
-
-The LLM can call these tools automatically based on your query:
-
-| Tool | Description |
-|------|-------------|
-| `get_active_users` | List all active users and their roles |
-| `add_user` | Add a new user (name + role) |
-| `deactivate_user` | Deactivate an active user by name |
-| `get_user_stats` | Get total, active, and inactive counts |
-| `search_users` | Search users by name fragment |
-
----
-
-## Example Queries
-
-- *"Who are our active users?"*
-- *"Add Jane Doe as a Manager"*
-- *"How many users do we have in total?"*
-- *"Search for users named Alice"*
-- *"Deactivate Bob Jones"*
-- *"Show me user statistics"*
-
----
-
-## Running the MCP Server (Standalone)
-
-`server.py` exposes the same tools via the [Model Context Protocol](https://modelcontextprotocol.io/). It supports both local `stdio` connections and an HTTP-based `sse` Transport! 
-
-It now exposes:
-- **Tools**: DB query and update operations
-- **Resources**: Exposes `schema.sql` over MCP
-- **Prompts**: Provides pre-configured prompts like `hr-assistant`
-
-To run locally for AI desktop apps (like Claude Desktop / Cursor):
-```bash
-python mcp_project/server.py --transport stdio
-```
-
-To run as an HTTP SSE server on port 8000:
-```bash
+set MCP_AUTH_REQUIRED=false
 python mcp_project/server.py --transport sse --port 8000
 ```
 
----
-
-## Project Structure
+### MCP server env vars
 
 ```
-F:\PROJECTS\MCP\
-├── .env                    # ← API key (never commit this!)
-├── .gitignore
-├── requirements.txt
-├── schema.sql              # DB schema — use to recreate the database
-├── enterprise_data.db      # SQLite database (gitignored)
-└── mcp_project\
-    ├── app.py              # Streamlit frontend
-    ├── server.py           # MCP stdio server
-    └── db.py               # Shared database access layer
+MCP_AUTH_REQUIRED=true|false
+MCP_JWKS_URL=
+MCP_ISSUER=
+MCP_AUDIENCE=
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
 ```
 
----
+See [.env.example](.env.example) and [next-app/.env.example](next-app/.env.example).
 
-## Security Notes
+### 4) Seed hybrid backends (optional)
 
-- **Never commit your `.env` file.** The `.gitignore` excludes it.
-- **Never commit `enterprise_data.db`.** Use `schema.sql` to recreate it.
-- Rotate your Groq API key at [console.groq.com](https://console.groq.com/) if it has ever been exposed.
+```bash
+python scripts/seed_hybrid.py
+```
+
+## Next.js UI
+
+### 1) Install deps
+
+```bash
+cd next-app
+npm install
+npm run dev
+```
+
+### 2) Env vars (Next.js)
+
+```
+MCP_BASE_URL=http://localhost:8000
+MCP_DEV_TOKEN=<optional-dev-token>
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+CLERK_JWT_TEMPLATE=
+```
+
+The UI uses Clerk for OAuth. If OAuth is not configured, provide `MCP_DEV_TOKEN` and set `MCP_AUTH_REQUIRED=false` on the server.
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Services:
+- MCP server on 8000
+- Next.js UI on 3000
+- Neo4j on 7474/7687
+- Qdrant on 6333
+
+## Orchestrator demo (LangGraph)
+
+```bash
+set MCP_API_URL=http://localhost:8000/api
+set MCP_TOKEN=<your-jwt>
+python orchestrator/langgraph_demo.py
+```
+
+## MCP tools and resources
+
+See [mcp_project/server.py](mcp_project/server.py) for full tool definitions. Resources are exposed for SOPs, logs, graph entities, and schema.
+
+## CI/CD
+
+GitHub Actions builds Python and Next.js, validates the schema, and builds Docker images. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
+
+## Repository map
+
+- [mcp_project/server.py](mcp_project/server.py) MCP server + REST proxy
+- [mcp_project/db.py](mcp_project/db.py) SQLite access layer
+- [mcp_project/hybrid.py](mcp_project/hybrid.py) Qdrant + Neo4j adapters
+- [schema.sql](schema.sql) data model
+- [next-app](next-app) Next.js ops console
+- [docker-compose.yml](docker-compose.yml) local stack

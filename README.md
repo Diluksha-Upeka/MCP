@@ -2,19 +2,75 @@
 
 Enterprise-grade Model Context Protocol server with secure tool execution, hybrid retrieval, and human-in-the-loop approvals. Includes a Next.js UI, Docker deployment, and GitHub Actions validation.
 
-## Architecture
+## System Architecture & Component Flow
 
 ```mermaid
 flowchart TD
-    User[Browser User] --> UI[Next.js Ops Console]
-    UI -->|OAuth JWT| Auth[OAuth Provider]
-    UI -->|REST proxy| MCP[MCP Server + REST]
-    MCP -->|Tools| SQLite[(SQLite SOPs/Logs/Approvals)]
-    MCP -->|Vector Search| Qdrant[(Qdrant)]
-    MCP -->|Graph Traversal| Neo4j[(Neo4j)]
-    MCP -->|Audit Logs| SQLite
-    MCP -->|MCP/stdio| MCPClient[MCP Client]
-    Orchestrator[LangGraph Demo] --> MCP
+    subgraph Frontend [The Manager's Dashboard]
+        UI[Next.js UI / page.tsx]
+        API[Next.js API Routes]
+        UI <-->|HTTP/JSON| API
+    end
+
+    subgraph Backend [The Engine & Security Desk]
+        Server[mcp_project/server.py\nStarlette + MCP Server]
+        Auth[mcp_project/auth.py\nSecurity & JWT]
+        DB_Connector[mcp_project/db.py\nRelational Connector]
+        Hybrid_Connector[mcp_project/hybrid.py\nAI Retrieval Connectors]
+        Server --- Auth
+        Server --- DB_Connector
+        Server --- Hybrid_Connector
+    end
+
+    subgraph Storage [The Storage Room / Databases]
+        SQLite[(SQLite\nUsers, Logs, Approvals)]
+        Qdrant[(Qdrant\nVector Search / Docs)]
+        Neo4j[(Neo4j\nGraph / Relationships)]
+    end
+
+    subgraph Clients [AI Agents]
+        LangGraph[Orchestrator\nlanggraph_demo.py]
+    end
+
+    API <-->|REST / SSE| Server
+    LangGraph <-->|MCP Protocol| Server
+    DB_Connector <--> SQLite
+    Hybrid_Connector <--> Qdrant
+    Hybrid_Connector <--> Neo4j
+```
+
+## Human-in-the-Loop (HITL) Execution Flow
+
+This chart shows how sensitive actions (like deactivating a user) are safely paused and routed to a human for approval:
+
+```mermaid
+sequenceDiagram
+    actor AI as AI Agent
+    participant Server as Python Server (server.py)
+    participant DB as SQLite DB (db.py)
+    participant API as Next.js API
+    actor Human as Admin Manager (UI)
+
+    AI->>Server: Call tool: `deactivate_user(id: 5)`
+    Server->>Server: Check tool sensitivity
+    Note over Server: Action is dangerous!<br/>Suspending execution...
+    Server->>DB: Create `approval_request` (Status: Pending)
+    Server-->>AI: Return "Action suspended. Waiting for approval."
+    
+    Human->>API: Load Dashboard (localhost:3000)
+    API->>Server: GET /api/approvals
+    Server->>DB: Fetch all pending approvals
+    DB-->>Server: [Request #1: Deactivate User #5]
+    Server-->>API: Returns approval list
+    API-->>Human: Displays pending Action #1 on screen
+    
+    Human->>API: Clicks "Approve"
+    API->>Server: POST /api/approvals/1/approve
+    Server->>DB: Update request status to "Approved"
+    Server->>DB: Execute ACTUAL `deactivate_user` query
+    Server->>DB: Write success to `audit_logs`
+    Server-->>API: 200 OK Status
+    API-->>Human: UI Updates (Action Completed)
 ```
 
 ## Why these schemas

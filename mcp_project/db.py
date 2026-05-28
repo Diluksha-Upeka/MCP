@@ -17,11 +17,44 @@ def _connect() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Initialize database file from schema.sql if missing."""
-    if os.path.exists(DB_PATH):
+    """Initialize database file from schema.sql if missing or incomplete.
+
+    If the file exists but required tables are missing, apply the schema.sql
+    to ensure the expected tables are present. This handles cases where an
+    earlier run created a partial DB file.
+    """
+    need_init = False
+    required_tables = {
+        "users",
+        "sops",
+        "system_logs",
+        "graph_entities",
+        "graph_edges",
+        "audit_logs",
+        "approval_requests",
+    }
+
+    if not os.path.exists(DB_PATH):
+        need_init = True
+    else:
+        # Check existing tables and mark for initialization if any required
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            existing = {r[0] for r in cur.fetchall()}
+            conn.close()
+            if not required_tables.issubset(existing):
+                need_init = True
+        except sqlite3.Error:
+            need_init = True
+
+    if not need_init:
         return
+
     if not os.path.exists(SCHEMA_PATH):
         raise FileNotFoundError("schema.sql not found for DB initialization")
+
     conn = sqlite3.connect(DB_PATH)
     with open(SCHEMA_PATH, "r", encoding="utf-8") as schema_file:
         conn.executescript(schema_file.read())

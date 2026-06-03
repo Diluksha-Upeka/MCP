@@ -11,7 +11,7 @@ import json
 import streamlit as st
 from groq import Groq, APIError, AuthenticationError, RateLimitError
 
-# Load .env from the project root (one level above this file)
+# Load .env from the project root 
 _dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 if os.path.exists(_dotenv_path):
     from dotenv import load_dotenv
@@ -32,7 +32,7 @@ st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-        /* ── Color tokens ─────────────────────────────── */
+        /* Color tokens */
         :root {
             --bg:        #0d0f14;
             --bg2:       #13161e;
@@ -51,21 +51,21 @@ st.markdown("""
             --warning:   #fbbf24;
         }
 
-        /* ── Global reset ─────────────────────────────── */
+        /*  Global reset  */
         html, body, [class*="css"], .stApp {
             background-color: var(--bg) !important;
             color: var(--fg) !important;
             font-family: 'Space Grotesk', sans-serif !important;
         }
 
-        /* ── Main content area ────────────────────────── */
+        /*  Main content area  */
         .main .block-container {
             padding-top: 2rem !important;
             padding-bottom: 6rem !important;
             max-width: 820px !important;
         }
 
-        /* ── Page title ───────────────────────────────── */
+        /*  Page title  */
         h1 {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
             -webkit-background-clip: text;
@@ -84,7 +84,7 @@ st.markdown("""
             margin-bottom: 1.5rem;
         }
 
-        /* ── Chat messages ────────────────────────────── */
+        /*  Chat messages  */
         [data-testid="stChatMessage"] {
             background: var(--bg2) !important;
             border: 1px solid var(--border) !important;
@@ -105,7 +105,7 @@ st.markdown("""
             border-color: #2d3355 !important;
         }
 
-        /* ── Chat input bar ───────────────────────────── */
+        /*  Chat input bar  */
         [data-testid="stChatInput"] {
             background: var(--bg2) !important;
             border: 1px solid var(--border-hi) !important;
@@ -134,7 +134,7 @@ st.markdown("""
             padding: 16px 24px 20px !important;
         }
 
-        /* ── Markdown text ────────────────────────────── */
+        /*  Markdown text  */
         .stMarkdown, .stMarkdown p, .stMarkdown li,
         [data-testid="stMarkdownContainer"] p,
         [data-testid="stMarkdownContainer"] li {
@@ -142,7 +142,7 @@ st.markdown("""
             line-height: 1.7;
         }
 
-        /* ── Inline code ──────────────────────────────── */
+        /*  Inline code  */
         .stMarkdown code,
         [data-testid="stMarkdownContainer"] code {
             font-family: 'JetBrains Mono', monospace !important;
@@ -154,7 +154,7 @@ st.markdown("""
             font-size: 0.85em !important;
         }
 
-        /* ── Tables ───────────────────────────────────── */
+        /*  Tables  */
         table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; }
         th {
             background: var(--bg3) !important;
@@ -173,7 +173,7 @@ st.markdown("""
         }
         tr:nth-child(even) td { background: #13161e !important; }
 
-        /* ── Sidebar ──────────────────────────────────── */
+        /*  Sidebar  */
         [data-testid="stSidebar"] {
             background: var(--bg2) !important;
             border-right: 1px solid var(--border) !important;
@@ -205,7 +205,7 @@ st.markdown("""
             margin: 12px 0 !important;
         }
 
-        /* ── Buttons ──────────────────────────────────── */
+        /*  Buttons  */
         .stButton > button {
             background: var(--bg3) !important;
             color: var(--fg) !important;
@@ -223,7 +223,7 @@ st.markdown("""
             box-shadow: 0 0 10px var(--accent-glow) !important;
         }
 
-        /* ── Scrollbar ────────────────────────────────── */
+        /*  Scrollbar  */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg); }
         ::-webkit-scrollbar-thumb {
@@ -232,7 +232,7 @@ st.markdown("""
         }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
 
-        /* ── Avatar icons ─────────────────────────────── */
+        /*  Avatar icons  */
         [data-testid="stChatMessage"] [data-testid="chatAvatarIcon-user"] {
             background: linear-gradient(135deg, #4f46e5, var(--accent2)) !important;
         }
@@ -240,7 +240,7 @@ st.markdown("""
             background: linear-gradient(135deg, #0891b2, var(--accent)) !important;
         }
 
-        /* ── Alerts / errors ──────────────────────────── */
+        /*  Alerts / errors  */
         [data-testid="stAlert"] {
             background: #1e1212 !important;
             border-color: var(--danger) !important;
@@ -248,7 +248,7 @@ st.markdown("""
             border-radius: 12px !important;
         }
 
-        /* ── Hide Streamlit chrome ────────────────────── */
+        /*  Hide Streamlit chrome  */
         #MainMenu  { visibility: hidden; }
         footer     { visibility: hidden; }
         header     { visibility: hidden; }
@@ -296,7 +296,7 @@ if not _api_key:
 client = Groq(api_key=_api_key)
 # llama3-groq-70b-8192-tool-use-preview is fine-tuned for JSON tool-calling.
 # llama-3.3-70b-versatile sometimes emits malformed XML-style function calls
-# (e.g. <function=name={...}>) which causes Groq to return a 400 tool_use_failed error.
+# in the tool-call responses, so we use llama-3.1-8b-instant instead.
 MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
 
 # Session state
@@ -341,20 +341,20 @@ mcp_tools = [
             }
         }
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "deactivate_user",
-            "description": "Deactivates an active user by their full name.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "The full name of the user to deactivate."}
-                },
-                "required": ["name"]
-            }
-        }
-    },
+    # {
+    #     "type": "function",
+    #     "function": {
+    #         "name": "deactivate_user",
+    #         "description": "Deactivates an active user by their full name.",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "name": {"type": "string", "description": "The full name of the user to deactivate."}
+    #             },
+    #             "required": ["name"]
+    #         }
+    #     }
+    # },
     {
         "type": "function",
         "function": {
@@ -428,7 +428,7 @@ if user_query:
         placeholder = st.empty()
 
         try:
-            # --- Pass 1: LLM decides whether to call a tool ---
+            # Pass 1: LLM decides which tools to call (streamed)
             response = client.chat.completions.create(
                 model=MODEL,
                 messages=messages_for_groq,
@@ -454,7 +454,7 @@ if user_query:
                         "content": db_result,
                     })
 
-                # --- Pass 2: LLM synthesizes the tool results (streamed) ---
+                # Pass 2: LLM synthesizes the tool results (streamed)
                 stream = client.chat.completions.create(
                     model=MODEL,
                     messages=messages_for_groq,

@@ -342,7 +342,11 @@ async def _handle_review_approval(request: Request) -> JSONResponse:
             tool_name = approval.get("tool_name")
             tool_args = approval.get("request", {})
             if tool_name == "add_user":
-                exec_result = add_user(name=tool_args.get("name", ""), role=tool_args.get("role", "Employee"))
+                VALID_ROLES = {"Employee", "Manager", "Admin", "Engineer", "Intern", "Director"}
+                role = tool_args.get("role", "Employee")
+                if role not in VALID_ROLES:
+                    role = "Employee"
+                exec_result = add_user(name=tool_args.get("name", ""), role=role)
             elif tool_name == "deactivate_user":
                 exec_result = deactivate_user(name=tool_args.get("name", ""))
             else:

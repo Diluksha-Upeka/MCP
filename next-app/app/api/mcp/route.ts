@@ -42,7 +42,7 @@ export async function POST(req: Request) {
           type: "object",
           properties: {
             name: { type: "string", description: "The full name of the user." },
-            role: { type: "string", description: "Job role: Employee, Manager, Admin, Engineer, Intern, or Director. Defaults to Employee." }
+            role: { type: "string", enum: ["Employee", "Manager", "Admin", "Engineer", "Intern", "Director"], description: "Job role. Defaults to Employee." }
           },
           required: ["name"]
         }

@@ -1,4 +1,4 @@
-﻿"""
+"""
 server.py — MCP stdio/sse server for the Enterprise Data Agent.
 
 Exposes enterprise database tools via the Model Context Protocol.
@@ -326,6 +326,7 @@ async def _handle_review_approval(request: Request) -> JSONResponse:
     request_id = int(request.path_params.get("request_id", "0"))
     status = body.get("status", "")
     result = update_approval_request(request_id=request_id, status=status, reviewed_by=actor_id)
+    
     create_audit_log(
         actor_id=actor_id,
         actor_role=actor_role,
@@ -334,6 +335,29 @@ async def _handle_review_approval(request: Request) -> JSONResponse:
         result_json=json.dumps(result),
         decision="allow" if result.get("status") == "success" else "deny"
     )
+
+    if status == "approved" and result.get("status") == "success":
+        approval = get_approval_request(request_id)
+        if approval:
+            tool_name = approval.get("tool_name")
+            tool_args = approval.get("request", {})
+            if tool_name == "add_user":
+                exec_result = add_user(name=tool_args.get("name", ""), role=tool_args.get("role", "Employee"))
+            elif tool_name == "deactivate_user":
+                exec_result = deactivate_user(name=tool_args.get("name", ""))
+            else:
+                exec_result = {"status": "error", "message": "Unsupported approved tool."}
+            
+            create_audit_log(
+                actor_id=actor_id,
+                actor_role=actor_role,
+                tool_name=f"execute:{tool_name}",
+                request_json=json.dumps({"approval_id": request_id, "tool": tool_name}),
+                result_json=json.dumps(exec_result),
+                decision="allow" if exec_result.get("status") != "error" else "deny"
+            )
+            result["execution"] = exec_result
+
     return JSONResponse(result)
 
 

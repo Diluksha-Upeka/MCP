@@ -17,8 +17,11 @@ VECTOR_DIM = int(os.getenv("MCP_VECTOR_DIM", "64"))
 QDRANT_COLLECTION = os.getenv("MCP_QDRANT_COLLECTION", "sops")
 
 
+# TODO: Replace with a real embedding model (e.g., sentence-transformers, OpenAI embeddings)
+# for production use. This deterministic hash produces consistent vectors for demo/testing
+# without requiring a GPU or external API calls.
 def _embed_text(text: str, dim: int = VECTOR_DIM) -> list[float]:
-    """Deterministic embedding for demo purposes."""
+    """Deterministic embedding for demo purposes — uses SHA-256 hashing."""
     text = (text or "").strip().lower()
     if not text:
         return [0.0] * dim

@@ -16,6 +16,9 @@ export async function POST(req: Request) {
   
   // This is a naive tool proxy for demonstration. 
   // In a real app we'd fetch the tools from the MCP server dynamically.
+  // TODO: Fetch tool schemas dynamically from the MCP server at startup
+  // instead of hardcoding them here. These mirror the canonical definitions
+  // in server.py list_tools().
   const tools = [
     {
       type: "function" as const,

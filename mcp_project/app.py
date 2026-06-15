@@ -314,6 +314,8 @@ for msg in st.session_state.messages:
         st.markdown(content)
 
 # Tool definitions (given to the LLM)
+# TODO: Fetch tool schemas dynamically from the MCP server instead of duplicating
+# them here. This mirrors the canonical definitions in server.py list_tools().
 mcp_tools = [
     {
         "type": "function",
@@ -341,20 +343,20 @@ mcp_tools = [
             }
         }
     },
-    # {
-    #     "type": "function",
-    #     "function": {
-    #         "name": "deactivate_user",
-    #         "description": "Deactivates an active user by their full name.",
-    #         "parameters": {
-    #             "type": "object",
-    #             "properties": {
-    #                 "name": {"type": "string", "description": "The full name of the user to deactivate."}
-    #             },
-    #             "required": ["name"]
-    #         }
-    #     }
-    # },
+    {
+        "type": "function",
+        "function": {
+            "name": "deactivate_user",
+            "description": "Deactivates an active user by their full name.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "The full name of the user to deactivate."}
+                },
+                "required": ["name"]
+            }
+        }
+    },
     {
         "type": "function",
         "function": {

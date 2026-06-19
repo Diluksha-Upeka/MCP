@@ -1,5 +1,9 @@
 # Enterprise MCP Operations Console
 
+![CI](https://github.com/Diluksha-Upeka/MCP/actions/workflows/ci.yml/badge.svg)
+![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
+
 Enterprise-grade Model Context Protocol server with secure tool execution, hybrid retrieval, and human-in-the-loop approvals. Includes a Next.js UI, Docker deployment, and GitHub Actions validation.
 
 ## System Architecture & Component Flow
@@ -154,12 +158,13 @@ npm run dev
 ```
 MCP_BASE_URL=http://localhost:8000
 MCP_DEV_TOKEN=<optional-dev-token>
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_SECRET_KEY=
-CLERK_JWT_TEMPLATE=
+GOOGLE_CLIENT_ID=<your-google-client-id>
+GOOGLE_CLIENT_SECRET=<your-google-client-secret>
+NEXTAUTH_SECRET=<random-32-byte-base64>
+NEXTAUTH_URL=http://localhost:3000
 ```
 
-The UI uses Clerk for OAuth. If OAuth is not configured, provide `MCP_DEV_TOKEN` and set `MCP_AUTH_REQUIRED=false` on the server.
+The UI uses NextAuth with Google OAuth. If OAuth is not configured, provide `MCP_DEV_TOKEN` and set `MCP_AUTH_REQUIRED=false` on the server.
 
 ## Docker
 
@@ -189,11 +194,24 @@ See [mcp_project/server.py](mcp_project/server.py) for full tool definitions. Re
 
 GitHub Actions builds Python and Next.js, validates the schema, and builds Docker images. See [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
+## Streamlit Frontend (Prototype)
+
+The project also includes a Streamlit-based chat interface that was the v1 prototype before the Next.js rewrite. It connects to the same database via `db.py` and uses Groq LLM for tool-calling.
+
+```bash
+streamlit run mcp_project/app.py
+```
+
+Requires `GROQ_API_KEY` in your `.env` file.
+
 ## Repository map
 
 - [mcp_project/server.py](mcp_project/server.py) MCP server + REST proxy
+- [mcp_project/app.py](mcp_project/app.py) Streamlit chat prototype
 - [mcp_project/db.py](mcp_project/db.py) SQLite access layer
+- [mcp_project/auth.py](mcp_project/auth.py) OAuth/JWT verification
 - [mcp_project/hybrid.py](mcp_project/hybrid.py) Qdrant + Neo4j adapters
 - [schema.sql](schema.sql) data model
 - [next-app](next-app) Next.js ops console
+- [orchestrator](orchestrator) LangGraph agent demo
 - [docker-compose.yml](docker-compose.yml) local stack

@@ -7,13 +7,20 @@ from this module to avoid duplicating SQL logic.
 import os
 import sqlite3
 import json
+from contextlib import contextmanager
 
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'enterprise_data.db'))
 SCHEMA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'schema.sql'))
 
 
-def _connect() -> sqlite3.Connection:
-    return sqlite3.connect(DB_PATH)
+@contextmanager
+def _connect():
+    """Yield a SQLite connection that auto-closes on exit, even on exceptions."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def init_db() -> None:
@@ -97,11 +104,10 @@ def _validate_limit(limit: int, max_limit: int = 200) -> int:
 
 def get_active_users() -> list[dict]:
     """Returns all active users with their roles."""
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute("SELECT name, role FROM users WHERE status = 'Active' ORDER BY name")
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT name, role FROM users WHERE status = 'Active' ORDER BY name")
+        rows = cur.fetchall()
     return [{"name": row[0], "role": row[1]} for row in rows]
 
 
@@ -117,20 +123,18 @@ def add_user(name: str, role: str = "Employee") -> dict:
     if err:
         return {"status": "error", "message": err}
 
-    conn = _connect()
-    cur = conn.cursor()
-    # Check for duplicate
-    cur.execute("SELECT id FROM users WHERE name = ? AND status = 'Active'", (name,))
-    if cur.fetchone():
-        conn.close()
-        return {"status": "error", "message": f"An active user named '{name}' already exists."}
+    with _connect() as conn:
+        cur = conn.cursor()
+        # Check for duplicate
+        cur.execute("SELECT id FROM users WHERE name = ? AND status = 'Active'", (name,))
+        if cur.fetchone():
+            return {"status": "error", "message": f"An active user named '{name}' already exists."}
 
-    cur.execute(
-        "INSERT INTO users (name, role, status) VALUES (?, ?, 'Active')",
-        (name, role)
-    )
-    conn.commit()
-    conn.close()
+        cur.execute(
+            "INSERT INTO users (name, role, status) VALUES (?, ?, 'Active')",
+            (name, role)
+        )
+        conn.commit()
     return {"status": "success", "message": f"User '{name}' added as {role}."}
 
 
@@ -141,15 +145,14 @@ def deactivate_user(name: str) -> dict:
     if err:
         return {"status": "error", "message": err}
 
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE users SET status = 'Inactive' WHERE name = ? AND status = 'Active'",
-        (name,)
-    )
-    affected = cur.rowcount
-    conn.commit()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET status = 'Inactive' WHERE name = ? AND status = 'Active'",
+            (name,)
+        )
+        affected = cur.rowcount
+        conn.commit()
 
     if affected == 0:
         return {"status": "error", "message": f"No active user named '{name}' found."}
@@ -158,11 +161,10 @@ def deactivate_user(name: str) -> dict:
 
 def get_user_stats() -> dict:
     """Returns total, active, and inactive user counts."""
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute("SELECT status, COUNT(*) FROM users GROUP BY status")
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT status, COUNT(*) FROM users GROUP BY status")
+        rows = cur.fetchall()
     counts = {row[0]: row[1] for row in rows}
     return {
         "total":    sum(counts.values()),
@@ -176,14 +178,13 @@ def search_users(query: str) -> list[dict]:
     query = (query or "").strip()
     if not query:
         return []
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT name, role, status FROM users WHERE name LIKE ? ORDER BY name",
-        (f"%{query}%",)
-    )
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT name, role, status FROM users WHERE name LIKE ? ORDER BY name",
+            (f"%{query}%",)
+        )
+        rows = cur.fetchall()
     return [{"name": r[0], "role": r[1], "status": r[2]} for r in rows]
 
 
@@ -202,14 +203,13 @@ def list_sops(status: str | None = None, department: str | None = None, limit: i
         params.append(department)
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
 
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        f"SELECT id, title, department, owner, status, updated_at FROM sops {where_clause} ORDER BY updated_at DESC LIMIT ?",
-        (*params, limit)
-    )
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT id, title, department, owner, status, updated_at FROM sops {where_clause} ORDER BY updated_at DESC LIMIT ?",
+            (*params, limit)
+        )
+        rows = cur.fetchall()
     return [
         {"id": r[0], "title": r[1], "department": r[2], "owner": r[3], "status": r[4], "updated_at": r[5]}
         for r in rows
@@ -218,14 +218,13 @@ def list_sops(status: str | None = None, department: str | None = None, limit: i
 
 def get_sop(sop_id: int) -> dict | None:
     """Returns a single SOP by ID."""
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, title, department, owner, status, content, updated_at FROM sops WHERE id = ?",
-        (sop_id,)
-    )
-    row = cur.fetchone()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, title, department, owner, status, content, updated_at FROM sops WHERE id = ?",
+            (sop_id,)
+        )
+        row = cur.fetchone()
     if not row:
         return None
     return {
@@ -245,14 +244,13 @@ def search_sops(query: str, limit: int = 50) -> list[dict]:
     if not query:
         return []
     limit = _validate_limit(limit)
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, title, department, owner, status, updated_at FROM sops WHERE title LIKE ? OR content LIKE ? ORDER BY updated_at DESC LIMIT ?",
-        (f"%{query}%", f"%{query}%", limit)
-    )
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, title, department, owner, status, updated_at FROM sops WHERE title LIKE ? OR content LIKE ? ORDER BY updated_at DESC LIMIT ?",
+            (f"%{query}%", f"%{query}%", limit)
+        )
+        rows = cur.fetchall()
     return [
         {"id": r[0], "title": r[1], "department": r[2], "owner": r[3], "status": r[4], "updated_at": r[5]}
         for r in rows
@@ -274,14 +272,13 @@ def list_system_logs(level: str | None = None, source: str | None = None, limit:
         params.append(source)
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
 
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        f"SELECT id, source, level, message, created_at FROM system_logs {where_clause} ORDER BY created_at DESC LIMIT ?",
-        (*params, limit)
-    )
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT id, source, level, message, created_at FROM system_logs {where_clause} ORDER BY created_at DESC LIMIT ?",
+            (*params, limit)
+        )
+        rows = cur.fetchall()
     return [
         {"id": r[0], "source": r[1], "level": r[2], "message": r[3], "created_at": r[4]}
         for r in rows
@@ -293,20 +290,19 @@ def list_system_logs(level: str | None = None, source: str | None = None, limit:
 def list_graph_entities(entity_type: str | None = None, limit: int = 100) -> list[dict]:
     """Returns graph entities, optionally filtered by type."""
     limit = _validate_limit(limit)
-    conn = _connect()
-    cur = conn.cursor()
-    if entity_type:
-        cur.execute(
-            "SELECT id, entity_type, name, attributes_json FROM graph_entities WHERE entity_type = ? ORDER BY name LIMIT ?",
-            (entity_type, limit)
-        )
-    else:
-        cur.execute(
-            "SELECT id, entity_type, name, attributes_json FROM graph_entities ORDER BY name LIMIT ?",
-            (limit,)
-        )
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        if entity_type:
+            cur.execute(
+                "SELECT id, entity_type, name, attributes_json FROM graph_entities WHERE entity_type = ? ORDER BY name LIMIT ?",
+                (entity_type, limit)
+            )
+        else:
+            cur.execute(
+                "SELECT id, entity_type, name, attributes_json FROM graph_entities ORDER BY name LIMIT ?",
+                (limit,)
+            )
+        rows = cur.fetchall()
     return [
         {"id": r[0], "entity_type": r[1], "name": r[2], "attributes": json.loads(r[3] or "{}")}
         for r in rows
@@ -315,14 +311,13 @@ def list_graph_entities(entity_type: str | None = None, limit: int = 100) -> lis
 
 def list_graph_edges(entity_id: int) -> list[dict]:
     """Returns edges connected to the given entity."""
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, from_entity_id, to_entity_id, relation_type, attributes_json FROM graph_edges WHERE from_entity_id = ? OR to_entity_id = ?",
-        (entity_id, entity_id)
-    )
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, from_entity_id, to_entity_id, relation_type, attributes_json FROM graph_edges WHERE from_entity_id = ? OR to_entity_id = ?",
+            (entity_id, entity_id)
+        )
+        rows = cur.fetchall()
     return [
         {
             "id": r[0],
@@ -346,41 +341,38 @@ def create_audit_log(
     decision: str = "allow"
 ) -> None:
     """Writes an audit log record for a tool invocation."""
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO audit_logs (actor_id, actor_role, tool_name, request_json, result_json, decision) VALUES (?, ?, ?, ?, ?, ?)",
-        (actor_id, actor_role, tool_name, request_json, result_json, decision)
-    )
-    conn.commit()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO audit_logs (actor_id, actor_role, tool_name, request_json, result_json, decision) VALUES (?, ?, ?, ?, ?, ?)",
+            (actor_id, actor_role, tool_name, request_json, result_json, decision)
+        )
+        conn.commit()
 
 
 def create_approval_request(tool_name: str, request_json: str, requested_by: str, reason: str = "") -> int:
     """Creates a new approval request and returns its ID."""
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO approval_requests (tool_name, request_json, requested_by, reason) VALUES (?, ?, ?, ?)",
-        (tool_name, request_json, requested_by, reason)
-    )
-    request_id = cur.lastrowid
-    conn.commit()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO approval_requests (tool_name, request_json, requested_by, reason) VALUES (?, ?, ?, ?)",
+            (tool_name, request_json, requested_by, reason)
+        )
+        request_id = cur.lastrowid
+        conn.commit()
     return int(request_id)
 
 
 def list_pending_approvals(limit: int = 50) -> list[dict]:
     """Returns pending approval requests."""
     limit = _validate_limit(limit)
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, tool_name, request_json, status, requested_by, reason, created_at FROM approval_requests WHERE status = 'pending' ORDER BY created_at ASC LIMIT ?",
-        (limit,)
-    )
-    rows = cur.fetchall()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, tool_name, request_json, status, requested_by, reason, created_at FROM approval_requests WHERE status = 'pending' ORDER BY created_at ASC LIMIT ?",
+            (limit,)
+        )
+        rows = cur.fetchall()
     return [
         {
             "id": r[0],
@@ -399,15 +391,14 @@ def update_approval_request(request_id: int, status: str, reviewed_by: str) -> d
     """Updates approval request status."""
     if status not in {"approved", "rejected", "expired"}:
         return {"status": "error", "message": "Invalid status."}
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE approval_requests SET status = ?, reviewed_by = ?, reviewed_at = datetime('now') WHERE id = ?",
-        (status, reviewed_by, request_id)
-    )
-    affected = cur.rowcount
-    conn.commit()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE approval_requests SET status = ?, reviewed_by = ?, reviewed_at = datetime('now') WHERE id = ?",
+            (status, reviewed_by, request_id)
+        )
+        affected = cur.rowcount
+        conn.commit()
     if affected == 0:
         return {"status": "error", "message": "Approval request not found."}
     return {"status": "success", "message": f"Approval request {request_id} marked {status}."}
@@ -415,14 +406,13 @@ def update_approval_request(request_id: int, status: str, reviewed_by: str) -> d
 
 def get_approval_request(request_id: int) -> dict | None:
     """Returns an approval request by ID."""
-    conn = _connect()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT id, tool_name, request_json, status, requested_by, reason, created_at, reviewed_by, reviewed_at FROM approval_requests WHERE id = ?",
-        (request_id,)
-    )
-    row = cur.fetchone()
-    conn.close()
+    with _connect() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, tool_name, request_json, status, requested_by, reason, created_at, reviewed_by, reviewed_at FROM approval_requests WHERE id = ?",
+            (request_id,)
+        )
+        row = cur.fetchone()
     if not row:
         return None
     return {

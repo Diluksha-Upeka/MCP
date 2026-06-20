@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Project Learnings — LinkedIn Carousel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --card-w: 540px;
+            --card-h: 680px;
+            --radius: 24px;
+            --bg-dark: #0a0a0f;
+            --surface: #111118;
+            --surface-2: #1a1a24;
+            --border: rgba(255,255,255,0.06);
+            --text-primary: #f0f0f5;
+            --text-secondary: #8888a0;
+            --accent: #6c5ce7;
+            --accent-glow: rgba(108,92,231,0.35);
+            --green: #00d2a0;
+            --green-glow: rgba(0,210,160,0.2);
+            --orange: #f7931a;
+            --blue: #4fc3f7;
+            --pink: #ff6b9d;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ─── Carousel Container ─── */
+        .carousel-wrapper {
+            position: relative;
+            width: var(--card-w);
+            height: var(--card-h);
+            perspective: 1200px;
+        }
+
+        .card {
+            position: absolute;
+            inset: 0;
+            width: var(--card-w);
+            height: var(--card-h);
+            border-radius: var(--radius);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 48px 44px;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(60px) scale(0.95);
+            transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1),
+                        transform 0.5s cubic-bezier(0.4,0,0.2,1);
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: var(--radius);
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(108,92,231,0.3), transparent 50%, rgba(0,210,160,0.15));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .card.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(0) scale(1);
+            z-index: 10;
+        }
+
+        .card.prev {
+            opacity: 0;
+            transform: translateX(-60px) scale(0.95);
+        }
+
+        /* ─── Card Header ─── */
+        .card-number {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .card-title {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card-subtitle {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+
+        /* ─── Divider ─── */
+        .divider {
+            width: 48px;
+            height: 3px;
+            border-radius: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--green));
+            margin-bottom: 28px;
+        }
+
+        /* ─── Content Area ─── */
+        .card-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .bullet {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 12px 16px;
+            border-radius: 14px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .bullet:hover {
+            background: rgba(108,92,231,0.06);
+            border-color: rgba(108,92,231,0.15);
+        }
+
+        .bullet-icon {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            background: rgba(108,92,231,0.12);
+            margin-top: 2px;
+        }
+
+        .bullet-text {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.55;
+            color: var(--text-primary);
+        }
+
+        .bullet-text span {
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* ─── Tags ─── */
+        .tag-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .tag {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .tag.accent { color: var(--accent); border-color: rgba(108,92,231,0.2); background: rgba(108,92,231,0.08); }
+        .tag.green  { color: var(--green);  border-color: rgba(0,210,160,0.2);  background: rgba(0,210,160,0.08); }
+        .tag.orange { color: var(--orange); border-color: rgba(247,147,26,0.2);  background: rgba(247,147,26,0.08); }
+        .tag.blue   { color: var(--blue);   border-color: rgba(79,195,247,0.2);  background: rgba(79,195,247,0.08); }
+        .tag.pink   { color: var(--pink);   border-color: rgba(255,107,157,0.2); background: rgba(255,107,157,0.08); }
+
+        /* ─── Code Block ─── */
+        .code-block {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 20px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12.5px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            overflow-x: auto;
+        }
+
+        .code-block .keyword { color: var(--accent); }
+        .code-block .string  { color: var(--green); }
+        .code-block .comment { color: #555; font-style: italic; }
+        .code-block .fn      { color: var(--blue); }
+
+        /* ─── Diagram Style ─── */
+        .diagram {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .diagram-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .diagram-box {
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid var(--border);
+            min-width: 100px;
+        }
+
+        .diagram-box.purple { background: rgba(108,92,231,0.12); color: var(--accent); border-color: rgba(108,92,231,0.25); }
+        .diagram-box.green  { background: rgba(0,210,160,0.12);  color: var(--green);  border-color: rgba(0,210,160,0.25); }
+        .diagram-box.blue   { background: rgba(79,195,247,0.12); color: var(--blue);   border-color: rgba(79,195,247,0.25); }
+        .diagram-box.orange { background: rgba(247,147,26,0.12); color: var(--orange); border-color: rgba(247,147,26,0.25); }
+
+        .diagram-arrow {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* ─── Card Footer ─── */
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            padding-top: 20px;
+        }
+
+        .author-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--green));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .author-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .author-handle {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .slide-counter {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+
+        /* ─── Navigation ─── */
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-top: 36px;
+        }
+
+        .nav-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s;
+            font-size: 18px;
+        }
+
+        .nav-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            box-shadow: 0 0 24px var(--accent-glow);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.25;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .dot.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
+            width: 24px;
+            border-radius: 4px;
+        }
+
+        /* ─── Intro Card Specific ─── */
+        .intro-title {
+            font-size: 36px;
+            font-weight: 900;
+            line-height: 1.15;
+            margin-bottom: 16px;
+        }
+
+        .intro-title .highlight {
+            background: linear-gradient(135deg, var(--accent), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .intro-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        /* ─── Glow Effects ─── */
+        .glow-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            opacity: 0.4;
+        }
+
+        .glow-1 {
+            width: 200px;
+            height: 200px;
+            background: var(--accent);
+            top: -60px;
+            right: -60px;
+            opacity: 0.15;
+        }
+
+        .glow-2 {
+            width: 160px;
+            height: 160px;
+            background: var(--green);
+            bottom: -40px;
+            left: -40px;
+            opacity: 0.1;
+        }
+
+        /* ─── Tip text ─── */
+        .tip {
+            margin-top: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            opacity: 0.5;
+        }
+
+        /* ─── Big Emoji ─── */
+        .big-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        /* ─── Takeaway card ─── */
+        .takeaway-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .takeaway-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 14px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+        }
+
+        .takeaway-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            background: rgba(108,92,231,0.15);
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .takeaway-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 600px) {
+            :root {
+                --card-w: 95vw;
+                --card-h: 85vh;
+            }
+            .card {
+                padding: 32px 28px;
+            }
+            .intro-title {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="carousel-wrapper" id="carousel">
+
+    <!-- CARD 1: INTRO -->
+    <div class="card active" data-index="0">
+        <div class="glow-orb glow-1"></div>
+        <div class="glow-orb glow-2"></div>
+        <div class="card-number">Learnings</div>
+        <div class="intro-title">
+            I built an<br><span class="highlight">Enterprise MCP Server</span><br>from scratch.
+        </div>
+        <div class="intro-subtitle">
+            Here's what I learned about building production-grade AI tool infrastructure — the Model Context Protocol, human-in-the-loop workflows, and hybrid retrieval.
+        </div>
+        <div class="divider"></div>
+        <div class="tag-row">
+            <span class="tag accent">MCP</span>
+            <span class="tag green">Python</span>
+            <span class="tag blue">Next.js</span>
+            <span class="tag orange">LangGraph</span>
+            <span class="tag pink">Docker</span>
+        </div>
+        <div class="card-footer">
+            <div class="author-row">
+                <div class="avatar">U</div>
+                <div>
+                    <div class="author-name">Upeka</div>
+                    <div class="author-handle">Swipe → to read</div>
+                </div>
+            </div>
+            <div class="slide-counter">1 / 8</div>
+        </div>
+    </div>
+
+    <!-- CARD 2: WHAT IS MCP -->
+    <div class="card" data-index="1">
+        <div class="glow-orb glow-1"></div>
+        <div class="card-number">01 — The Protocol</div>
+        <div class="card-title">What even is MCP?</div>
+        <div class="card-subtitle">Model Context Protocol is a standard for connecting AI models to external tools and data — think USB-C for AI agents.</div>
+        <div class="divider"></div>
+        <div class="card-body">
+            <div class="bullet">
+                <div class="bullet-icon">🔧</div>
+                <div class="bullet-text"><strong>Tools</strong> — <span>Functions the AI can call with strict JSON schemas (query users, search SOPs, etc.)</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">📄</div>
+                <div class="bullet-text"><strong>Resources</strong> — <span>Read-only data the AI can pull for context (DB schemas, SOP catalogs, logs)</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">💬</div>
+                <div class="bullet-text"><strong>Prompts</strong> — <span>Reusable system prompts that adapt to role and incident severity</span></div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="author-row">
+                <div class="avatar">U</div>
+                <div>
+                    <div class="author-name">Upeka</div>
+                    <div class="author-handle">MCP Project</div>
+                </div>
+            </div>
+            <div class="slide-counter">2 / 8</div>
+        </div>
+    </div>
+
+    <!-- CARD 3: ARCHITECTURE -->
+    <div class="card" data-index="2">
+        <div class="glow-orb glow-1"></div>
+        <div class="card-number">02 — Architecture</div>
+        <div class="card-title">The full-stack setup</div>
+        <div class="card-subtitle">4 services, 1 protocol, zero hallucinations on data operations.</div>
+        <div class="divider"></div>
+        <div class="card-body">
+            <div class="diagram">
+                <div class="diagram-row">
+                    <div class="diagram-box blue">Next.js UI</div>
+                    <div class="diagram-arrow">⟷</div>
+                    <div class="diagram-box purple">MCP Server<br><small style="opacity:0.6">Starlette + Python</small></div>
+                </div>
+                <div class="diagram-arrow" style="margin: 4px 0;">↕</div>
+                <div class="diagram-row">
+                    <div class="diagram-box green">SQLite</div>
+                    <div class="diagram-box orange">Qdrant</div>
+                    <div class="diagram-box blue">Neo4j</div>
+                </div>
+            </div>
+            <div class="bullet" style="margin-top:8px;">
+                <div class="bullet-icon">🤖</div>
+                <div class="bullet-text"><strong>LangGraph orchestrator</strong> — <span>AI agent that classifies queries and calls MCP tools via REST</span></div>
+            </div>
+            <div class="tag-row" style="margin-top:4px">
+                <span class="tag green">SSE Transport</span>
+                <span class="tag accent">stdio Transport</span>
+                <span class="tag orange">Docker Compose</span>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="author-row">
+                <div class="avatar">U</div>
+                <div>
+                    <div class="author-name">Upeka</div>
+                    <div class="author-handle">MCP Project</div>
+                </div>
+            </div>
+            <div class="slide-counter">3 / 8</div>
+        </div>
+    </div>
+
+    <!-- CARD 4: HUMAN IN THE LOOP -->
+    <div class="card" data-index="3">
+        <div class="glow-orb glow-2"></div>
+        <div class="card-number">03 — Safety</div>
+        <div class="card-title">Human-in-the-loop is non-negotiable</div>
+        <div class="card-subtitle">AI shouldn't delete users or modify critical data without a human saying "yes."</div>
+        <div class="divider"></div>
+        <div class="card-body">
+            <div class="bullet">
+                <div class="bullet-icon">🛑</div>
+                <div class="bullet-text"><strong>Sensitive tools are gated</strong> — <span>add_user and deactivate_user require approval before execution</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">📋</div>
+                <div class="bullet-text"><strong>Approval queue</strong> — <span>Pending requests show up in the Next.js dashboard for admins to review</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">📝</div>
+                <div class="bullet-text"><strong>Full audit trail</strong> — <span>Every tool call is logged with actor, decision, request, and result</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">✅</div>
+                <div class="bullet-text"><strong>Only then it runs</strong> — <span>Approved actions are executed and logged again for traceability</span></div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="author-row">
+                <div class="avatar">U</div>
+                <div>
+                    <div class="author-name">Upeka</div>
+                    <div class="author-handle">MCP Project</div>
+                </div>
+            </div>
+            <div class="slide-counter">4 / 8</div>
+        </div>
+    </div>
+
+    <!-- CARD 5: HYBRID RETRIEVAL -->
+    <div class="card" data-index="4">
+        <div class="glow-orb glow-1"></div>
+        <div class="card-number">04 — Retrieval</div>
+        <div class="card-title">One query, three backends</div>
+        <div class="card-subtitle">Hybrid retrieval routes queries to the best data source automatically.</div>
+        <div class="divider"></div>
+        <div class="card-body">
+            <div class="bullet">
+                <div class="bullet-icon" style="background:rgba(0,210,160,0.12);">🔍</div>
+                <div class="bullet-text"><strong>Qdrant vector search</strong> — <span>Semantic search across SOPs using deterministic embeddings</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon" style="background:rgba(79,195,247,0.12);">🕸️</div>
+                <div class="bullet-text"><strong>Neo4j graph queries</strong> — <span>"What depends on Payroll API?" answered with Cypher</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon" style="background:rgba(247,147,26,0.12);">🗃️</div>
+                <div class="bullet-text"><strong>SQLite full-text</strong> — <span>Structured relational data for users, logs, and approvals</span></div>
+            </div>
+            <div class="code-block" style="margin-top:4px">
+<span class="comment"># Smart routing based on intent</span>
+<span class="keyword">if</span> <span class="string">"relationship"</span> <span class="keyword">in</span> query → <span class="fn">graph</span>
+<span class="keyword">if</span> <span class="string">"error"</span> <span class="keyword">in</span> query → <span class="fn">logs</span>
+<span class="keyword">else</span> → <span class="fn">vector search SOPs</span>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="author-row">
+                <div class="avatar">U</div>
+                <div>
+                    <div class="author-name">Upeka</div>
+                    <div class="author-handle">MCP Project</div>
+                </div>
+            </div>
+            <div class="slide-counter">5 / 8</div>
+        </div>
+    </div>
+
+    <!-- CARD 6: AUTH & SECURITY -->
+    <div class="card" data-index="5">
+        <div class="glow-orb glow-2"></div>
+        <div class="card-number">05 — Security</div>
+        <div class="card-title">Auth at the protocol layer</div>
+        <div class="card-subtitle">Every MCP tool call goes through JWT verification and scope-based authorization.</div>
+        <div class="divider"></div>
+        <div class="card-body">
+            <div class="bullet">
+                <div class="bullet-icon">🔐</div>
+                <div class="bullet-text"><strong>OAuth + JWT via JWKS</strong> — <span>Clerk handles identity, server verifies tokens against JWKS endpoint</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">🎯</div>
+                <div class="bullet-text"><strong>Scoped permissions</strong> — <span>read:users, write:users, read:sops, write:approvals — per tool</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">📊</div>
+                <div class="bullet-text"><strong>Audit everything</strong> — <span>Actor ID, role, tool, request payload, result, and decision are all stored</span></div>
+            </div>
+            <div class="code-block" style="margin-top:4px">
+<span class="comment"># Every tool checks this before running</span>
+TOOL_SCOPES = {
+  <span class="string">"deactivate_user"</span>: [<span class="string">"write:users"</span>],
+  <span class="string">"search_sops"</span>:     [<span class="string">"read:sops"</span>],
+  <span class="string">"hybrid_query"</span>:    [<span class="string">"read:hybrid"</span>],
+}
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="author-row">
+                <div class="avatar">U</div>
+                <div>
+                    <div class="author-name">Upeka</div>
+                    <div class="author-handle">MCP Project</div>
+                </div>
+            </div>
+            <div class="slide-counter">6 / 8</div>
+        </div>
+    </div>
+
+    <!-- CARD 7: AI ORCHESTRATION -->
+    <div class="card" data-index="6">
+        <div class="glow-orb glow-1"></div>
+        <div class="card-number">06 — Orchestration</div>
+        <div class="card-title">LangGraph as the agent brain</div>
+        <div class="card-subtitle">A multi-step state machine that classifies, gathers context, and acts — all through MCP tools.</div>
+        <div class="divider"></div>
+        <div class="card-body">
+            <div class="diagram">
+                <div class="diagram-row">
+                    <div class="diagram-box purple">classify</div>
+                    <div class="diagram-arrow">→</div>
+                    <div class="diagram-box green">gather_context</div>
+                    <div class="diagram-arrow">→</div>
+                    <div class="diagram-box orange">act</div>
+                </div>
+            </div>
+            <div class="bullet" style="margin-top: 10px">
+                <div class="bullet-icon">🧠</div>
+                <div class="bullet-text"><strong>Classify</strong> — <span>Routes the query to logs, graph, or SOPs based on intent</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">📥</div>
+                <div class="bullet-text"><strong>Gather Context</strong> — <span>Calls the right MCP tool to collect relevant data</span></div>
+            </div>
+            <div class="bullet">
+                <div class="bullet-icon">⚡</div>
+                <div class="bullet-text"><strong>Act</strong> — <span>Uses hybrid_query for the final answer with full context</span></div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="author-row">
+                <div class="avatar">U</div>
+                <div>
+                    <div class="author-name">Upeka</div>
+                    <div class="author-handle">MCP Project</div>
+                </div>
+            </div>
+            <div class="slide-counter">7 / 8</div>
+        </div>
+    </div>
+
+    <!-- CARD 8: TAKEAWAYS -->
+    <div class="card" data-index="7">
+        <div class="glow-orb glow-1"></div>
+        <div class="glow-orb glow-2"></div>
+        <div class="card-number">Takeaways</div>
+        <div class="card-title">What I'd tell you before starting</div>
+        <div class="divider"></div>
+        <div class="card-body">
+            <div class="takeaway-list">
+                <div class="takeaway-item">
+                    <div class="takeaway-num">1</div>
+                    <div class="takeaway-text">MCP is the standard. Learn it now — every major AI tool will speak it.</div>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-num">2</div>
+                    <div class="takeaway-text">Never let AI run destructive tools unsupervised. Build the approval queue first.</div>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-num">3</div>
+                    <div class="takeaway-text">One retrieval backend isn't enough. Combine vector, graph, and relational data.</div>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-num">4</div>
+                    <div class="takeaway-text">Auth at the protocol layer, not the application layer. Scope every tool.</div>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-num">5</div>
+                    <div class="takeaway-text">Docker Compose makes it ship-ready. Don't wait until the end to containerize.</div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:20px; text-align:center;">
+            <div style="font-size:14px; color:var(--text-secondary);">
+                Full code on GitHub → <strong style="color:var(--accent)">Star ⭐ if this helped</strong>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="author-row">
+                <div class="avatar">U</div>
+                <div>
+                    <div class="author-name">Upeka</div>
+                    <div class="author-handle">Follow for more</div>
+                </div>
+            </div>
+            <div class="slide-counter">8 / 8</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav-controls">
+    <button class="nav-btn" id="prevBtn" disabled>←</button>
+    <div class="dots" id="dots"></div>
+    <button class="nav-btn" id="nextBtn">→</button>
+</div>
+<div class="tip">← → arrow keys · swipe · click dots</div>
+
+<script>
+    const cards = document.querySelectorAll('.card');
+    const dots = document.getElementById('dots');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    let current = 0;
+    const total = cards.length;
+
+    // Create dots
+    for (let i = 0; i < total; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (i === 0 ? ' active' : '');
+        dot.addEventListener('click', () => goTo(i));
+        dots.appendChild(dot);
+    }
+
+    function goTo(index) {
+        if (index < 0 || index >= total) return;
+        cards[current].classList.remove('active');
+        cards[current].classList.add(index > current ? 'prev' : '');
+
+        current = index;
+
+        cards.forEach((c, i) => {
+            c.classList.remove('active', 'prev');
+            if (i === current) {
+                c.classList.add('active');
+            } else if (i < current) {
+                c.classList.add('prev');
+            }
+        });
+
+        document.querySelectorAll('.dot').forEach((d, i) => {
+            d.classList.toggle('active', i === current);
+        });
+
+        prevBtn.disabled = current === 0;
+        nextBtn.disabled = current === total - 1;
+    }
+
+    prevBtn.addEventListener('click', () => goTo(current - 1));
+    nextBtn.addEventListener('click', () => goTo(current + 1));
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1);
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goTo(current - 1);
+    });
+
+    // Touch/Swipe
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const wrapper = document.getElementById('carousel');
+
+    wrapper.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    wrapper.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) goTo(current + 1);
+            else goTo(current - 1);
+        }
+    }, { passive: true });
+</script>
+
+</body>
+</html>
